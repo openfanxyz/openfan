@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { authenticate } from '@/lib/auth';
 import { generatePersonaConfig } from '@/lib/persona';
+import { announceCreator } from '@/lib/buffer';
 
 export const maxDuration = 30;
 
@@ -108,6 +109,9 @@ export async function POST(req: NextRequest) {
     creatorId,
     connectionStatus: 'active',
   });
+
+  // Announce on social media (non-blocking)
+  announceCreator({ name, slug, bio });
 
   return NextResponse.json({
     success: true,
