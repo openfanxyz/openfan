@@ -17,14 +17,18 @@ import { env } from '@/lib/env';
 // ─── Constants ───────────────────────────────────────────────
 
 // USDC mint on Solana mainnet
-const USDC_MINT = new PublicKey(
-  env.USDC_MINT_ADDRESS || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-);
+let _usdcMint: PublicKey | null = null;
+function getUsdcMint() {
+  if (!_usdcMint) _usdcMint = new PublicKey(env.USDC_MINT_ADDRESS || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+  return _usdcMint;
+}
 
 // OpenFan platform wallet (receives protocol fees)
-const PLATFORM_WALLET = new PublicKey(
-  env.OPENFAN_PLATFORM_WALLET
-);
+let _platformWallet: PublicKey | null = null;
+function getPlatformWallet() {
+  if (!_platformWallet) _platformWallet = new PublicKey(env.OPENFAN_PLATFORM_WALLET);
+  return _platformWallet;
+}
 
 // Protocol fee percentage (10%)
 const PROTOCOL_FEE_BPS = 1000; // 10% in basis points
@@ -78,9 +82,9 @@ export async function buildUnlockTransaction(
   const creatorPayout = params.amountLamports - platformFee;
 
   // Get associated token accounts
-  const buyerAta = await getAssociatedTokenAddress(USDC_MINT, params.buyerWallet);
-  const creatorAta = await getAssociatedTokenAddress(USDC_MINT, params.creatorWallet);
-  const platformAta = await getAssociatedTokenAddress(USDC_MINT, PLATFORM_WALLET);
+  const buyerAta = await getAssociatedTokenAddress(getUsdcMint(), params.buyerWallet);
+  const creatorAta = await getAssociatedTokenAddress(getUsdcMint(), params.creatorWallet);
+  const platformAta = await getAssociatedTokenAddress(getUsdcMint(), getPlatformWallet());
 
   const transaction = new Transaction();
 
@@ -163,10 +167,10 @@ export async function verifyUnlockTransaction(
 
     // Find creator balance change
     const creatorPost = postBalances.find(
-      (b) => b.owner === expectedCreatorWallet && b.mint === USDC_MINT.toBase58()
+      (b) => b.owner === expectedCreatorWallet && b.mint === getUsdcMint().toBase58()
     );
     const creatorPre = preBalances.find(
-      (b) => b.owner === expectedCreatorWallet && b.mint === USDC_MINT.toBase58()
+      (b) => b.owner === expectedCreatorWallet && b.mint === getUsdcMint().toBase58()
     );
 
     if (!creatorPost) {
@@ -183,12 +187,12 @@ export async function verifyUnlockTransaction(
     }
 
     // Verify platform received the expected fee
-    const platformAddress = PLATFORM_WALLET.toBase58();
+    const platformAddress = getPlatformWallet().toBase58();
     const platformPost = postBalances.find(
-      (b) => b.owner === platformAddress && b.mint === USDC_MINT.toBase58()
+      (b) => b.owner === platformAddress && b.mint === getUsdcMint().toBase58()
     );
     const platformPre = preBalances.find(
-      (b) => b.owner === platformAddress && b.mint === USDC_MINT.toBase58()
+      (b) => b.owner === platformAddress && b.mint === getUsdcMint().toBase58()
     );
 
     const platformReceived =
@@ -236,8 +240,8 @@ export async function buildGenerationPayment(
 ): Promise<{ transaction: string }> {
   const connection = getConnection();
 
-  const payerAta = await getAssociatedTokenAddress(USDC_MINT, payerWallet);
-  const platformAta = await getAssociatedTokenAddress(USDC_MINT, PLATFORM_WALLET);
+  const payerAta = await getAssociatedTokenAddress(getUsdcMint(), payerWallet);
+  const platformAta = await getAssociatedTokenAddress(getUsdcMint(), getPlatformWallet());
 
   const transaction = new Transaction();
 
@@ -291,12 +295,12 @@ export async function verifyGenerationPayment(
     const postBalances = tx.meta?.postTokenBalances || [];
     const preBalances = tx.meta?.preTokenBalances || [];
 
-    const platformAddress = PLATFORM_WALLET.toBase58();
+    const platformAddress = getPlatformWallet().toBase58();
     const platformPost = postBalances.find(
-      (b) => b.owner === platformAddress && b.mint === USDC_MINT.toBase58()
+      (b) => b.owner === platformAddress && b.mint === getUsdcMint().toBase58()
     );
     const platformPre = preBalances.find(
-      (b) => b.owner === platformAddress && b.mint === USDC_MINT.toBase58()
+      (b) => b.owner === platformAddress && b.mint === getUsdcMint().toBase58()
     );
 
     const received =
@@ -329,7 +333,7 @@ export function lamportsToUsdc(lamports: number): number {
 export async function getUsdcBalance(walletAddress: string): Promise<number> {
   const connection = getConnection();
   const wallet = new PublicKey(walletAddress);
-  const ata = await getAssociatedTokenAddress(USDC_MINT, wallet);
+  const ata = await getAssociatedTokenAddress(getUsdcMint(), wallet);
 
   try {
     const account = await getAccount(connection, ata);
