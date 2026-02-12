@@ -38,7 +38,10 @@ const envSchema = z.object({
   NEXT_PUBLIC_BASE_URL: z.string().url().optional(),
 });
 
-function validateEnv() {
+let _env: z.infer<typeof envSchema> | null = null;
+
+function getEnv() {
+  if (_env) return _env;
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
     const formatted = result.error.issues
@@ -48,7 +51,12 @@ function validateEnv() {
       `Invalid environment variables:\n${formatted}\n\nPlease check your .env file.`
     );
   }
-  return result.data;
+  _env = result.data;
+  return _env;
 }
 
-export const env = validateEnv();
+export const env = new Proxy({} as z.infer<typeof envSchema>, {
+  get(_, prop: string) {
+    return getEnv()[prop as keyof z.infer<typeof envSchema>];
+  },
+});
