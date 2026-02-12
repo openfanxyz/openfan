@@ -4,6 +4,13 @@ import { eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { verifyUnlockTransaction } from '@/lib/solana';
 import { getUnlockedImageUrl } from '@/lib/image';
+import { checkRateLimit } from '@/lib/ratelimit';
+import { z } from 'zod';
+
+const unlockSchema = z.object({
+  postId: z.string().min(1),
+  txSignature: z.string().min(64).max(128),
+});
 
 export const maxDuration = 30;
 
@@ -22,14 +29,18 @@ export const maxDuration = 30;
  * 5. Return signed R2 URL (5-min expiry)
  */
 export async function POST(req: NextRequest) {
-  const { postId, txSignature } = await req.json();
+  const limited = checkRateLimit(req, 'unlock', { maxRequests: 30, windowMs: 60_000 });
+  if (limited) return limited;
 
-  if (!postId || !txSignature) {
+  const body = await req.json();
+  const parsed = unlockSchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Required: postId, txSignature' },
+      { error: 'Invalid request', details: parsed.error.issues },
       { status: 400 }
     );
   }
+  const { postId, txSignature } = parsed.data;
 
   // Get post
   const [post] = await db

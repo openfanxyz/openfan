@@ -3,6 +3,8 @@ import { db, schema } from '@/db';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { authenticate } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/ratelimit';
+import { z } from 'zod';
 
 export const maxDuration = 60;
 import {
@@ -12,6 +14,16 @@ import {
 } from '@/lib/runpod';
 import { verifyGenerationPayment } from '@/lib/solana';
 import { buildGenerationPrompt } from '@/lib/persona';
+
+const generateSchema = z.object({
+  creatorSlug: z.string().min(1).max(100),
+  prompt: z.string().min(1).max(2000),
+  numImages: z.number().int().min(1).max(4).optional().default(1),
+  width: z.number().int().min(256).max(2048).optional().default(1024),
+  height: z.number().int().min(256).max(2048).optional().default(1024),
+  seed: z.number().int().optional(),
+  paymentTxSignature: z.string().min(64).max(128).optional(),
+});
 
 /**
  * POST /api/v1/generate
@@ -34,27 +46,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const body = await req.json();
-  const {
-    creatorSlug,
-    prompt,
-    numImages = 1,
-    width = 1024,
-    height = 1024,
-    seed,
-    paymentTxSignature,
-  } = body;
+  const limited = checkRateLimit(req, 'generate', { maxRequests: 10, windowMs: 60_000 });
+  if (limited) return limited;
 
-  if (!creatorSlug || !prompt) {
+  const body = await req.json();
+  const parsed = generateSchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Required: creatorSlug, prompt' },
+      { error: 'Invalid request', details: parsed.error.issues },
       { status: 400 }
     );
   }
-
-  if (numImages > 4) {
-    return NextResponse.json({ error: 'Max 4 images per request' }, { status: 400 });
-  }
+  const { creatorSlug, prompt, numImages, width, height, seed, paymentTxSignature } = parsed.data;
 
   // Find creator
   const [creator] = await db

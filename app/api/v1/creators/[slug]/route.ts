@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { authenticate } from '@/lib/auth';
 
 /**
@@ -62,6 +62,31 @@ export async function PATCH(
 
   if (!creator) {
     return NextResponse.json({ error: 'Creator not found' }, { status: 404 });
+  }
+
+  // Verify ownership
+  if (auth.operatorId) {
+    // API key auth — check operator owns this creator
+    if (creator.operatorId !== auth.operatorId) {
+      return NextResponse.json({ error: 'Forbidden: you do not own this creator' }, { status: 403 });
+    }
+  } else if (auth.agentId) {
+    // JWT auth — check agent has a connection to this creator
+    const [connection] = await db
+      .select()
+      .from(schema.agentConnections)
+      .where(
+        and(
+          eq(schema.agentConnections.openclawAgentId, auth.agentId),
+          eq(schema.agentConnections.creatorId, creator.id)
+        )
+      )
+      .limit(1);
+    if (!connection) {
+      return NextResponse.json({ error: 'Forbidden: you do not own this creator' }, { status: 403 });
+    }
+  } else {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   // Build update object from allowed fields

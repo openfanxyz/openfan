@@ -4,6 +4,12 @@ import { eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { authenticate } from '@/lib/auth';
 import { getUnlockedImageUrl } from '@/lib/image';
+import { z } from 'zod';
+
+const agentUnlockSchema = z.object({
+  postId: z.string().min(1),
+  reason: z.string().max(200).optional(),
+});
 
 /**
  * POST /api/v1/agent/unlock
@@ -19,11 +25,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { postId, reason } = await req.json();
-
-  if (!postId) {
-    return NextResponse.json({ error: 'postId required' }, { status: 400 });
+  const body = await req.json();
+  const parsed = agentUnlockSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid request', details: parsed.error.issues },
+      { status: 400 }
+    );
   }
+  const { postId, reason } = parsed.data;
 
   const [post] = await db
     .select()

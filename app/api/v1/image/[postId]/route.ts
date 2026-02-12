@@ -8,8 +8,7 @@ import { getUnlockedImageUrl } from '@/lib/image';
  * GET /api/v1/image/:postId
  * Serve unlocked image. Verifies the caller has a valid unlock record.
  *
- * Auth: OpenClaw JWT, API key, or wallet address
- * Query: ?wallet=<address> (for wallet-based auth)
+ * Auth: OpenClaw JWT, API key, or wallet signature
  *
  * Returns: redirect to signed R2 URL (5-min expiry)
  */
@@ -56,8 +55,7 @@ export async function GET(
   }
 
   // Check wallet-based auth
-  const walletAddress = verifyWalletAuth(req) ||
-    req.nextUrl.searchParams.get('wallet');
+  const walletAddress = verifyWalletAuth(req);
 
   if (walletAddress) {
     const [unlock] = await db

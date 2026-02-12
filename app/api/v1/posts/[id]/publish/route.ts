@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { eq, sql } from 'drizzle-orm';
 import { authenticate } from '@/lib/auth';
+import { z } from 'zod';
+
+const publishSchema = z.object({
+  caption: z.string().max(1000).optional(),
+  priceLamports: z.number().int().min(1).optional(),
+  tags: z.array(z.string().max(50)).max(20).optional(),
+}).optional();
 
 /**
  * POST /api/v1/posts/:id/publish
@@ -20,7 +27,15 @@ export async function POST(
   }
 
   const { id } = await params;
-  const body = await req.json().catch(() => ({}));
+  const rawBody = await req.json().catch(() => undefined);
+  const parsed = publishSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid request', details: parsed.error.issues },
+      { status: 400 }
+    );
+  }
+  const body = parsed.data || {};
 
   const [post] = await db
     .select()

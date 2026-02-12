@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // ─── Operators ───────────────────────────────────────────────
@@ -40,7 +40,10 @@ export const creators = sqliteTable('creators', {
   totalRevenueLamports: integer('total_revenue_lamports').default(0),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [
+  index('creators_operator_id_idx').on(table.operatorId),
+  index('creators_pipeline_status_idx').on(table.pipelineStatus),
+]);
 
 // ─── Agent Connections ───────────────────────────────────────
 // OpenClaw agents connected to OpenFan
@@ -56,7 +59,10 @@ export const agentConnections = sqliteTable('agent_connections', {
   creatorId: text('creator_id').references(() => creators.id),
   connectionStatus: text('connection_status').$type<'pending' | 'active' | 'disconnected'>().default('pending'),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [
+  index('agent_connections_openclaw_agent_id_idx').on(table.openclawAgentId),
+  index('agent_connections_creator_id_idx').on(table.creatorId),
+]);
 
 // ─── Posts ───────────────────────────────────────────────────
 // Content published by creators (images)
@@ -80,7 +86,12 @@ export const posts = sqliteTable('posts', {
   publishedAt: text('published_at'),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [
+  index('posts_creator_id_idx').on(table.creatorId),
+  index('posts_status_idx').on(table.status),
+  index('posts_published_at_idx').on(table.publishedAt),
+  index('posts_status_published_idx').on(table.status, table.publishedAt),
+]);
 
 // ─── Unlocks ─────────────────────────────────────────────────
 // Records of content unlocked by fans/bots via Solana USDC
@@ -95,7 +106,11 @@ export const unlocks = sqliteTable('unlocks', {
   agentId: text('agent_id'),
   unlockType: text('unlock_type').$type<'payment' | 'agent' | 'promo'>().default('payment'),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [
+  uniqueIndex('unlocks_tx_signature_idx').on(table.solanaTxSignature),
+  index('unlocks_post_id_idx').on(table.postId),
+  index('unlocks_buyer_wallet_idx').on(table.buyerWalletAddress),
+]);
 
 // ─── Generation Jobs ─────────────────────────────────────────
 // Track image generation jobs (self-hosted or platform RunPod)
@@ -116,7 +131,11 @@ export const generationJobs = sqliteTable('generation_jobs', {
   startedAt: text('started_at'),
   completedAt: text('completed_at'),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [
+  index('generation_jobs_creator_id_idx').on(table.creatorId),
+  index('generation_jobs_status_idx').on(table.status),
+  index('generation_jobs_runpod_request_id_idx').on(table.runpodRequestId),
+]);
 
 // ─── API Keys ────────────────────────────────────────────────
 // For operators not using OpenClaw JWT auth
@@ -131,4 +150,7 @@ export const apiKeys = sqliteTable('api_keys', {
   expiresAt: text('expires_at'),
   isActive: integer('is_active', { mode: 'boolean' }).default(true),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [
+  index('api_keys_key_hash_idx').on(table.keyHash),
+  index('api_keys_operator_id_idx').on(table.operatorId),
+]);

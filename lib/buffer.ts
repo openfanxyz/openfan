@@ -40,7 +40,8 @@ export async function announceCreator(params: BufferPostParams): Promise<void> {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
     });
-  } catch {
+  } catch (error) {
     // Non-fatal — social post failure should never block onboarding
+    console.error('[buffer] Failed to announce creator:', error instanceof Error ? error.message : error);
   }
 }

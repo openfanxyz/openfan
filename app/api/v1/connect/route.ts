@@ -5,6 +5,21 @@ import { randomUUID } from 'crypto';
 import { authenticate } from '@/lib/auth';
 import { generatePersonaConfig } from '@/lib/persona';
 import { announceCreator } from '@/lib/buffer';
+import { checkRateLimit } from '@/lib/ratelimit';
+import { z } from 'zod';
+
+const connectSchema = z.object({
+  soulMd: z.string().min(1).max(50000),
+  visualDescription: z.string().max(5000).optional(),
+  solanaWalletAddress: z.string().min(32).max(44),
+  slug: z.string().min(1).max(50).regex(/^[a-z0-9-]+$/),
+  name: z.string().min(1).max(100),
+  contentRating: z.enum(['sfw', 'nsfw']).optional(),
+  runpodEndpoint: z.string().url().optional(),
+  runpodApiKey: z.string().max(200).optional(),
+  bio: z.string().max(500).optional(),
+  avatarUrl: z.string().url().optional(),
+});
 
 export const maxDuration = 30;
 
@@ -22,7 +37,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const limited = checkRateLimit(req, 'connect', { maxRequests: 5, windowMs: 60_000 });
+  if (limited) return limited;
+
   const body = await req.json();
+  const parsed = connectSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid request', details: parsed.error.issues },
+      { status: 400 }
+    );
+  }
   const {
     soulMd,
     visualDescription,
@@ -34,14 +59,7 @@ export async function POST(req: NextRequest) {
     runpodApiKey,
     bio,
     avatarUrl,
-  } = body;
-
-  if (!soulMd || !solanaWalletAddress || !slug || !name) {
-    return NextResponse.json(
-      { error: 'Required: soulMd, solanaWalletAddress, slug, name' },
-      { status: 400 }
-    );
-  }
+  } = parsed.data;
 
   // Check slug uniqueness
   const [existing] = await db
@@ -76,8 +94,9 @@ export async function POST(req: NextRequest) {
       visualDescription,
       contentRating: contentRating || 'sfw',
     });
-  } catch {
+  } catch (error) {
     // Non-fatal — creator can update persona later
+    console.error('[connect] Persona generation failed:', error instanceof Error ? error.message : error);
   }
 
   // Create creator profile

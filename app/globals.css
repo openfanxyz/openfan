@@ -1,17 +1,50 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0a0a0a;
-  --card: #141414;
-  --accent: #e11d9e;
-  --accent-hover: #f032b4;
-  --text: #e2e8f0;
-  --text-muted: #94a3b8;
-  --border: #1e293b;
+  --bg: #060b12;
+  --bg-alt: #0a1018;
+  --card: #0d1520;
+  --card-hover: #121e2e;
+  --accent: #00aff0;
+  --accent-hover: #2ec4ff;
+  --accent-muted: rgba(0, 175, 240, 0.12);
+  --text: #e4ecf5;
+  --text-muted: #6b7f96;
+  --border: #152030;
+  --border-hover: #1e3048;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, sans-serif;
+}
+
+::selection {
+  background: rgba(0, 175, 240, 0.3);
+  color: #fff;
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Scrollbar (webkit) */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
 }

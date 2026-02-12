@@ -12,17 +12,18 @@ import {
   getAccount,
   TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
+import { env } from '@/lib/env';
 
 // ─── Constants ───────────────────────────────────────────────
 
 // USDC mint on Solana mainnet
 const USDC_MINT = new PublicKey(
-  process.env.USDC_MINT_ADDRESS || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+  env.USDC_MINT_ADDRESS || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 );
 
 // OpenFan platform wallet (receives protocol fees)
 const PLATFORM_WALLET = new PublicKey(
-  process.env.OPENFAN_PLATFORM_WALLET || '11111111111111111111111111111111'
+  env.OPENFAN_PLATFORM_WALLET
 );
 
 // Protocol fee percentage (10%)
@@ -37,8 +38,8 @@ let connectionInstance: Connection | null = null;
 
 function getConnection(): Connection {
   if (!connectionInstance) {
-    const rpcUrl = process.env.SOLANA_RPC_URL || clusterApiUrl('mainnet-beta');
-    connectionInstance = new Connection(rpcUrl, 'confirmed');
+    const rpcUrl = env.SOLANA_RPC_URL || clusterApiUrl('mainnet-beta');
+    connectionInstance = new Connection(rpcUrl, 'finalized');
   }
   return connectionInstance;
 }
@@ -140,7 +141,7 @@ export async function verifyUnlockTransaction(
 
   try {
     const tx = await connection.getTransaction(txSignature, {
-      commitment: 'confirmed',
+      commitment: 'finalized',
       maxSupportedTransactionVersion: 0,
     });
 
@@ -179,6 +180,24 @@ export async function verifyUnlockTransaction(
     // Allow 1 lamport tolerance for rounding
     if (Math.abs(creatorReceived - expectedCreatorPayout) > 1) {
       return { valid: false, amountLamports: 0, platformFeeLamports: 0, creatorPayoutLamports: 0, buyerWallet: '', creatorWallet: '', error: `Creator payout mismatch: expected ${expectedCreatorPayout}, got ${creatorReceived}` };
+    }
+
+    // Verify platform received the expected fee
+    const platformAddress = PLATFORM_WALLET.toBase58();
+    const platformPost = postBalances.find(
+      (b) => b.owner === platformAddress && b.mint === USDC_MINT.toBase58()
+    );
+    const platformPre = preBalances.find(
+      (b) => b.owner === platformAddress && b.mint === USDC_MINT.toBase58()
+    );
+
+    const platformReceived =
+      Number(platformPost?.uiTokenAmount.amount || 0) -
+      Number(platformPre?.uiTokenAmount.amount || 0);
+
+    // Allow 1 lamport tolerance for rounding
+    if (Math.abs(platformReceived - expectedPlatformFee) > 1) {
+      return { valid: false, amountLamports: 0, platformFeeLamports: 0, creatorPayoutLamports: 0, buyerWallet: '', creatorWallet: '', error: `Platform fee mismatch: expected ${expectedPlatformFee}, got ${platformReceived}` };
     }
 
     // Find buyer (first signer)
@@ -260,7 +279,7 @@ export async function verifyGenerationPayment(
 
   try {
     const tx = await connection.getTransaction(txSignature, {
-      commitment: 'confirmed',
+      commitment: 'finalized',
       maxSupportedTransactionVersion: 0,
     });
 

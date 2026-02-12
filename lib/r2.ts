@@ -4,15 +4,16 @@ import {
   GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { env } from '@/lib/env';
 
 // ─── Config ──────────────────────────────────────────────────
 
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '';
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
-const R2_BUCKET_ORIGINALS = process.env.R2_BUCKET_ORIGINALS || 'openfan-originals';
-const R2_BUCKET_PREVIEWS = process.env.R2_BUCKET_PREVIEWS || 'openfan-previews';
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || '';
+const R2_ACCOUNT_ID = env.R2_ACCOUNT_ID;
+const R2_ACCESS_KEY_ID = env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = env.R2_SECRET_ACCESS_KEY;
+const R2_BUCKET_ORIGINALS = env.R2_BUCKET_ORIGINALS;
+const R2_BUCKET_PREVIEWS = env.R2_BUCKET_PREVIEWS;
+const R2_PUBLIC_URL = env.R2_PUBLIC_URL;
 
 // ─── Client ──────────────────────────────────────────────────
 

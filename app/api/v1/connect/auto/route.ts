@@ -5,6 +5,21 @@ import { randomUUID } from 'crypto';
 import { authenticate } from '@/lib/auth';
 import { generatePersonaConfig } from '@/lib/persona';
 import { announceCreator } from '@/lib/buffer';
+import { checkRateLimit } from '@/lib/ratelimit';
+import { z } from 'zod';
+
+const autoConnectSchema = z.object({
+  soulMd: z.string().min(1).max(50000),
+  solanaWalletAddress: z.string().min(32).max(44),
+  name: z.string().min(1).max(100).optional(),
+  slug: z.string().min(1).max(50).regex(/^[a-z0-9-]+$/).optional(),
+  visualDescription: z.string().max(5000).optional(),
+  bio: z.string().max(500).optional(),
+  avatarUrl: z.string().url().optional(),
+  contentRating: z.enum(['sfw', 'nsfw']).optional(),
+  runpodEndpoint: z.string().url().optional(),
+  runpodApiKey: z.string().max(200).optional(),
+});
 
 export const maxDuration = 30;
 
@@ -42,18 +57,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = await req.json();
-  const { soulMd, solanaWalletAddress } = body;
+  const limited = checkRateLimit(req, 'connect-auto', { maxRequests: 5, windowMs: 60_000 });
+  if (limited) return limited;
 
-  if (!soulMd || !solanaWalletAddress) {
+  const body = await req.json();
+  const parsed = autoConnectSchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Required: soulMd, solanaWalletAddress' },
+      { error: 'Invalid request', details: parsed.error.issues },
       { status: 400 }
     );
   }
+  const { soulMd, solanaWalletAddress } = parsed.data;
 
   // Derive name from SOUL.md first heading or body
-  const name = body.name || extractNameFromSoul(soulMd);
+  const name = parsed.data.name || extractNameFromSoul(soulMd);
   if (!name) {
     return NextResponse.json(
       { error: 'Could not derive name from SOUL.md — provide name explicitly' },
@@ -62,7 +80,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Derive slug from name
-  const slug = body.slug || slugify(name);
+  const slug = parsed.data.slug || slugify(name);
 
   // Check if this agent is already connected
   const [existingConnection] = await db
@@ -107,26 +125,27 @@ export async function POST(req: NextRequest) {
   try {
     personaConfig = await generatePersonaConfig({
       soulMd,
-      visualDescription: body.visualDescription,
-      contentRating: body.contentRating || 'sfw',
+      visualDescription: parsed.data.visualDescription,
+      contentRating: parsed.data.contentRating || 'sfw',
     });
-  } catch {
+  } catch (error) {
     // Non-fatal — creator can update persona later
+    console.error('[connect/auto] Persona generation failed:', error instanceof Error ? error.message : error);
   }
 
   // Create creator profile
   const creatorId = randomUUID();
-  const bio = body.bio || extractBioFromSoul(soulMd);
+  const bio = parsed.data.bio || extractBioFromSoul(soulMd);
   await db.insert(schema.creators).values({
     id: creatorId,
     operatorId,
     slug,
     name,
     bio,
-    avatarUrl: body.avatarUrl || null,
+    avatarUrl: parsed.data.avatarUrl || null,
     solanaWalletAddress,
     personaConfig: personaConfig as typeof schema.creators.$inferInsert['personaConfig'],
-    runpodEndpointUrl: body.runpodEndpoint || null,
+    runpodEndpointUrl: parsed.data.runpodEndpoint || null,
     pipelineStatus: personaConfig ? 'ready' : 'draft',
   });
 
@@ -137,10 +156,10 @@ export async function POST(req: NextRequest) {
     operatorId,
     openclawAgentId: auth.agentId!,
     soulMd,
-    visualDescription: body.visualDescription || null,
+    visualDescription: parsed.data.visualDescription || null,
     solanaWalletAddress,
-    runpodEndpointUrl: body.runpodEndpoint || null,
-    runpodApiKey: body.runpodApiKey || null,
+    runpodEndpointUrl: parsed.data.runpodEndpoint || null,
+    runpodApiKey: parsed.data.runpodApiKey || null,
     creatorId,
     connectionStatus: 'active',
   });

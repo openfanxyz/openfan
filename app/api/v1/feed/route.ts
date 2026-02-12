@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { eq, desc } from 'drizzle-orm';
+import { checkRateLimit } from '@/lib/ratelimit';
 
 /**
  * GET /api/v1/feed
  * Public content feed — latest published posts across all creators.
  */
 export async function GET(req: NextRequest) {
+  const limited = checkRateLimit(req, 'feed', { maxRequests: 60, windowMs: 60_000 });
+  if (limited) return limited;
+
   const limit = Math.min(Number(req.nextUrl.searchParams.get('limit')) || 20, 50);
   const offset = Number(req.nextUrl.searchParams.get('offset')) || 0;
 

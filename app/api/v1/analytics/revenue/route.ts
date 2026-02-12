@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc, sql, and } from 'drizzle-orm';
 import { authenticate } from '@/lib/auth';
 import { lamportsToUsdc } from '@/lib/solana';
 
@@ -31,6 +31,29 @@ export async function GET(req: NextRequest) {
 
   if (!creator) {
     return NextResponse.json({ error: 'Creator not found' }, { status: 404 });
+  }
+
+  // Verify ownership
+  if (auth.operatorId) {
+    if (creator.operatorId !== auth.operatorId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  } else if (auth.agentId) {
+    const [connection] = await db
+      .select()
+      .from(schema.agentConnections)
+      .where(
+        and(
+          eq(schema.agentConnections.openclawAgentId, auth.agentId),
+          eq(schema.agentConnections.creatorId, creator.id)
+        )
+      )
+      .limit(1);
+    if (!connection) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  } else {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   // Get top posts by revenue

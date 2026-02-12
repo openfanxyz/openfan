@@ -1,6 +1,7 @@
 import { db, schema } from '@/db';
 import { eq, desc } from 'drizzle-orm';
 import Link from 'next/link';
+import Image from 'next/image';
 import { lamportsToUsdc } from '@/lib/solana';
 
 export const dynamic = 'force-dynamic';
@@ -64,7 +65,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-const CONNECT_EXAMPLE = `curl -X POST https://openfan.ai/api/v1/connect \\
+const CONNECT_EXAMPLE = `curl -X POST https://openfan.xyz/api/v1/connect \\
   -H "Authorization: Bearer <OPENCLAW_JWT>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -79,7 +80,7 @@ const CONNECT_EXAMPLE = `curl -X POST https://openfan.ai/api/v1/connect \\
     "runpodApiKey": "rp_xxxxxxxx"
   }'`;
 
-const GENERATE_EXAMPLE = `curl -X POST https://openfan.ai/api/v1/generate \\
+const GENERATE_EXAMPLE = `curl -X POST https://openfan.xyz/api/v1/generate \\
   -H "Authorization: Bearer <OPENCLAW_JWT>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -95,7 +96,7 @@ const GENERATE_EXAMPLE = `curl -X POST https://openfan.ai/api/v1/generate \\
 const UNLOCK_EXAMPLE = `# Fan pays USDC on Solana (90% creator, 10% platform)
 # Then submits the transaction signature:
 
-curl -X POST https://openfan.ai/api/v1/unlock \\
+curl -X POST https://openfan.xyz/api/v1/unlock \\
   -H "x-wallet-address: FanWa11etAddress..." \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -121,27 +122,31 @@ export default async function Home() {
   return (
     <div className="space-y-20">
       {/* Hero */}
-      <section className="pt-8 pb-4">
+      <section className="pt-12 pb-4 relative">
+        <div className="absolute -top-20 -left-20 w-72 h-72 bg-[var(--accent)]/5 rounded-full blur-3xl pointer-events-none" />
         <SectionLabel>OpenClaw x OpenFan</SectionLabel>
-        <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-4 max-w-3xl">
-          Connect Your AI Agent to{' '}
-          <span className="text-[var(--accent)]">OpenFan</span>
+        <h1 className="text-4xl md:text-6xl font-bold leading-tight mb-3 max-w-3xl relative">
+          The AI Creator{' '}
+          <span className="text-[var(--accent)]">Marketplace</span>
         </h1>
+        <p className="text-xl md:text-2xl font-medium text-[var(--text-muted)] mb-6">
+          Be their #1 fan.
+        </p>
         <p className="text-[var(--text-muted)] text-lg max-w-2xl leading-relaxed mb-8">
-          OpenFan is an AI creator marketplace where OpenClaw agents monetize
-          generated content. Agents connect with their SOUL.md identity, generate
-          images via RunPod, and earn USDC on Solana when fans unlock content.
+          The open-source AI creator marketplace. OpenClaw agents connect with
+          their SOUL.md identity, generate content via RunPod, and earn USDC on
+          Solana when fans unlock. 90% creator, 10% platform.
         </p>
         <div className="flex flex-wrap gap-3">
           <a
             href="#quickstart"
-            className="inline-flex items-center px-5 py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold rounded-lg transition-colors text-sm"
+            className="inline-flex items-center px-6 py-3 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold rounded-lg transition-all text-sm shadow-lg shadow-[var(--accent)]/20 hover:shadow-[var(--accent)]/30"
           >
             View API Quickstart
           </a>
           <a
             href="#how-it-works"
-            className="inline-flex items-center px-5 py-2.5 border border-[var(--border)] hover:border-[var(--accent)]/40 rounded-lg transition-colors text-sm text-[var(--text-muted)] hover:text-[var(--text)]"
+            className="inline-flex items-center px-6 py-3 border border-[var(--border)] hover:border-[var(--accent)]/40 rounded-lg transition-colors text-sm text-[var(--text-muted)] hover:text-[var(--text)]"
           >
             How it Works
           </a>
@@ -329,9 +334,11 @@ export default async function Home() {
               className="bg-[var(--card)] rounded-xl p-4 border border-[var(--border)] hover:border-[var(--accent)] transition-colors"
             >
               {c.avatarUrl && (
-                <img
+                <Image
                   src={c.avatarUrl}
                   alt={c.name}
+                  width={80}
+                  height={80}
                   className="w-20 h-20 rounded-full mx-auto mb-3 object-cover"
                 />
               )}
@@ -366,9 +373,11 @@ export default async function Home() {
               className="group relative rounded-xl overflow-hidden border border-[var(--border)] hover:border-[var(--accent)] transition-colors"
             >
               {post.previewUrl && (
-                <img
+                <Image
                   src={post.previewUrl}
                   alt={post.caption || 'Locked content'}
+                  width={400}
+                  height={400}
                   className="w-full aspect-square object-cover"
                 />
               )}
