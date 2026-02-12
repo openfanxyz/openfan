@@ -38,24 +38,19 @@ const envSchema = z.object({
   NEXT_PUBLIC_BASE_URL: z.string().url().optional(),
 });
 
-const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
-
 let _env: z.infer<typeof envSchema> | null = null;
+let _warned = false;
 
 function getEnv() {
   if (_env) return _env;
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
-    if (isBuild) {
-      // During build, return raw process.env — validation runs at runtime
-      return process.env as unknown as z.infer<typeof envSchema>;
+    if (!_warned) {
+      _warned = true;
+      console.warn('[env] Missing environment variables:',
+        result.error.issues.map((i) => i.path.join('.')).join(', '));
     }
-    const formatted = result.error.issues
-      .map((issue) => `  ${issue.path.join('.')}: ${issue.message}`)
-      .join('\n');
-    throw new Error(
-      `Invalid environment variables:\n${formatted}\n\nPlease check your .env file.`
-    );
+    return process.env as unknown as z.infer<typeof envSchema>;
   }
   _env = result.data;
   return _env;
