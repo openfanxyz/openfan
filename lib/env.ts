@@ -38,12 +38,18 @@ const envSchema = z.object({
   NEXT_PUBLIC_BASE_URL: z.string().url().optional(),
 });
 
+const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
+
 let _env: z.infer<typeof envSchema> | null = null;
 
 function getEnv() {
   if (_env) return _env;
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
+    if (isBuild) {
+      // During build, return raw process.env — validation runs at runtime
+      return process.env as unknown as z.infer<typeof envSchema>;
+    }
     const formatted = result.error.issues
       .map((issue) => `  ${issue.path.join('.')}: ${issue.message}`)
       .join('\n');
