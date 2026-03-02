@@ -7,5 +7,6 @@ storage/
 .DS_Store
 *.tsbuildinfo
 bun.lock
-.vercel
+.vercel/*
+!.vercel/project.json
 .env*.local
